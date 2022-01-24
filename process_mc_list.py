@@ -16,34 +16,49 @@ from process_mdg_csv import counter_from_gav, counts_to_csv
 
 
 def convert_lsl_to_csv(filename, dates=False):
-    package_list = []
-    with open(filename, newline='') as csvfile, open("lsl_filtered_with_dates.csv", "x") as result_csv:
+    print("**Filter lsl file and convert to csv")
+    with open(filename, newline='') as csvfile, \
+            open("lsl_filtered_with_dates.csv") as result_csv:
         reader = csv.DictReader(csvfile, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)  # ugly thing to use because size is right-aligned
-        if dates == True:
-            result_csv.write("artifactname,version\n")  # headers are nice
+        print(f"Lines to process: {len(list(reader))}")
+
+        if dates:
+            writer = csv.writer(result_csv,
+                                fieldnames=['artifactname', 'version'])  # headers are nice
         else:
-            result_csv.write("artifactname,version,date\n")  # headers are nice
+            writer = csv.writer(result_csv,
+                                fieldnames=['artifactname', 'version', 'date'])
+
+        javadoc_count = 0
+        sources_count = 0
+        tests_count = 0
         for line in reader:
-            # print(line)
             try:
+                # split the line
                 groupid, artifactname, version, jarname = line['path'].rsplit('/', 3)
 
                 # filter out javadoc- and sources-jars
                 the_slice = jarname[-11:-4]
-                if not (the_slice == "javadoc" or the_slice == "sources"):
-                    package_list.append(artifactname)
-                    if dates == True:
-                        line_to_write = groupid.replace('/', '.') + ':' + artifactname + ',' + version + ',' \
-                                        + line['date'] + '\n'
+                if the_slice == "javadoc":
+                    javadoc_count += 1
+                elif the_slice == "sources":
+                    sources_count += 1
+                elif the_slice == "-tests":
+                    tests_count += 1
+                else:
+                    groupid_clean = groupid.replace('/', '.')
+                    if dates:
+                        writer.writerow([groupid_clean, artifactname, version, line['date']])
                     else:
-                        line_to_write = groupid.replace('/', '.') + ':' + artifactname + ',' + version + '\n'
-                    result_csv.write(line_to_write)
+                        writer.writerow([groupid_clean, artifactname, version])
                 # print(groupid, artifactname, version, jarname)
             except ValueError as err:
                 print(f"ValueError {err}")
                 print(line)
-    print(len(package_list))
+    print(f" Javadoc: {javadoc_count}, Sources: {sources_count}, Tests: {tests_count}")
+    print(f" Total filtered: {javadoc_count + sources_count + tests_count}")
+    print()
     return
 
 
