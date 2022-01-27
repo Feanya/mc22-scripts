@@ -29,12 +29,12 @@ def counter_from_gavjd(filename: str):
     return Counter(package_list)
 
 
-def counter_from_gav(filename: str):
+def counter_from_gav(filename: str, fieldname='artifactname'):
     package_list = []
     with open(filename, newline='') as csvfile:
         reader = csv.DictReader(csvfile, delimiter=',')
         for entry in reader:
-            package_list.append(entry['artifactname'])
+            package_list.append(entry[fieldname])
     print(len(package_list))
     return Counter(package_list)
 
@@ -97,8 +97,8 @@ def plot_counter(sorted_package_counter: Counter, name=""):
     plt.show()
 
 
-def counts_to_csv(package_counter: Counter):
-    with open("temp/versions_per_package_sorted_all.csv", "x") as f:
+def counts_to_csv(package_counter: Counter, filename="temp/versions_per_package_sorted_all.csv"):
+    with open(filename, "x") as f:
         for c, v in package_counter.most_common():
             s = '\n' + c + ', ' + str(v)
             f.write(s)
@@ -116,17 +116,19 @@ def cleanup():
         print(error)
 
 
-cleanup()
-# packageCounter = counter_from_gavjd('all_naughty.csv')
-# sorted_package_counter = packageCounter.most_common()
+if __name__ == "__main__":
+    print(f"process_mdg_csv")
+    cleanup()
+    # packageCounter = counter_from_gavjd('all_naughty.csv')
+    # sorted_package_counter = packageCounter.most_common()
 
-# plot nice and naughty
-# package_counter = counter_from_gav('all_nice.csv')
-# plot_counter(package_counter, "Packages adhering to SemVer syntactically")
-package_counter = counter_from_gav('all_naughty.csv')
-plot_counter(package_counter, "Packages not adhering to SemVer syntactically")
+    # plot nice and naughty
+    # package_counter = counter_from_gav('all_nice.csv')
+    # plot_counter(package_counter, "Packages adhering to SemVer syntactically")
+    package_counter = counter_from_gav('all_naughty.csv')
+    plot_counter(package_counter, "Packages not adhering to SemVer syntactically")
 
-# sorted_package_counter = packageCounter.most_common()
-# list_GA = [artifact for artifact, version in sorted_package_counter]
-# split('release_all.csv')
-# counts_to_csv(packageCounter)
+    # sorted_package_counter = packageCounter.most_common()
+    # list_GA = [artifact for artifact, version in sorted_package_counter]
+    # split('release_all.csv')
+    # counts_to_csv(packageCounter)
