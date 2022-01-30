@@ -21,12 +21,11 @@ def lsl_to_json(filename: str) -> list[JsonDict]:
         with open(filename) as lsl_file:
             reader = csv.DictReader(lsl_file, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                     skipinitialspace=True)
-            lines = list(reader)
-            logging.debug(f"(lsl_to_json) Lines to process: {len(lines)}")
 
-            for line in lines:
+            count = 0
+            for line in reader:
                 # stitch together timestamp
-                timestamp: datetime = parser.parse(line['date'] + ' ' + line['time']).isoformat()
+                timestamp: datetime = parser.parse(f"{line['date']} {line['time']}").isoformat()
 
                 # split the path
                 groupid, artifactid, version, jarname = line['path'].rsplit('/', 3)
@@ -40,9 +39,10 @@ def lsl_to_json(filename: str) -> list[JsonDict]:
                                  jarname=jarname,
                                  timestamp=timestamp)
                 result.append(temp_dict)
-                logging.debug(str(temp_dict))
+                count += 1
+            logging.debug(f"Lines processed: {count}")
     except IOError:
-        logging.critical(f"(lsl_to_json) File {filename} not readable!")
+        logging.critical(f"File {filename} not readable!")
     except ValueError as err:
         logging.critical(f"ValueError {err}")
     return result

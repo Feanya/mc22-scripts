@@ -47,7 +47,7 @@ def main(filename: str, type: str, plot: bool, process: bool, output_path=""):
 
 if __name__ == "__main__":
     # setup logger
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(levelname)s: (%(funcName)s) %(message)s', level=logging.DEBUG)
     logging.debug(f"Arguments: {sys.argv}")
     # parse arguments
     parser = argparse.ArgumentParser(description="Process maven jar-artifact information")
