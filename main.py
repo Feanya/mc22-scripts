@@ -30,6 +30,8 @@ def main(filename: str, type: str, plot: bool, strip: bool, output_path=""):
     # get a json
     if type == "lsl":
         data = process_lsl.lsl_to_json(filename)
+    elif type == "lsl-db":
+        data = process_lsl.lsl_to_database(filename, "mc22-metadata.db")
     elif type == "mdg":
         data = process_mdg.mdg_to_json(filename)
     elif type == "json":
