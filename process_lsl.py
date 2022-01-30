@@ -90,7 +90,7 @@ def lsl_to_database(filename: str, database: str):
          artifactname   TEXT,
          version        TEXT,
          jarname        TEXT,
-         size           INTEGER    NOT NULL,
+         size           INTEGER,
          timestamp      INTEGER);''')
 
     cursor = con.cursor()
@@ -98,28 +98,39 @@ def lsl_to_database(filename: str, database: str):
     with open(filename) as f:
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
-        for row in reader:
-            try:
-                # stitch together timestamp
-                timestamp: int = int(parser.parse(f"{row['date']} {row['time']}").timestamp())
-
-                # split the path
-                groupid, artifactname, version, jarname = row['path'].rsplit('/', 3)
-
-                # convert groupid
-                groupid_clean = groupid.replace('/', '.')
-
-                sql = '''INSERT INTO data (groupid, artifactname, version, jarname, size, timestamp)
-                 VALUES (?, ?, ?, ?, ?, ?)'''
-                cursor.execute(sql, (groupid_clean, artifactname, version, jarname, row['size'], timestamp))
-            except ValueError as err:
-                logging.critical(f"ValueError: {err}\n {row}")
+        sql = '''INSERT INTO data (groupid, artifactname, version, jarname, size, timestamp) VALUES (?,?,?,?,?,?)'''
+        cursor.executemany(sql, process_data(reader))
+    con.commit()
 
     logging.debug(f"Inserted until row {cursor.lastrowid}")
 
     cursor = con.execute("SELECT * FROM data WHERE ID <30 ")
     for row in cursor:
         logging.debug(row)
+    con.close()
+
+
+def process_data(data: csv.DictReader):
+    """Generator function for lazy processing of lsl files"""
+    i = 0
+    for line in data:
+        try:
+            # stitch together timestamp
+            timestamp: int = int(parser.parse(f"{line['date']} {line['time']}").timestamp())
+
+            # split the path
+            groupid, artifactname, version, jarname = line['path'].rsplit('/', 3)
+
+            # convert groupid
+            groupid_clean = groupid.replace('/', '.')
+
+            i += 1
+            if i % 1000000 == 0:
+                logging.debug(f"Lines processed: {i}")
+            entry = (groupid_clean, artifactname, version, jarname, line['size'], timestamp)
+            yield entry
+        except ValueError as err:
+            logging.critical(f"ValueError: {err}\n {line}")
 
 
 def strip_dates():
