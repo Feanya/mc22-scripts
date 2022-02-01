@@ -10,6 +10,8 @@ import re
 import sqlite3
 from typing import Dict, Any
 
+import matplotlib.pyplot as plt
+import pandas as pd
 from dateutil import parser
 
 # Types
@@ -100,23 +102,67 @@ def lsl_to_database(filename: str, database_file: str):
     with open(filename) as f:
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
-        sql = '''INSERT INTO data2 (groupid, artifactname, version, versionscheme, type, size, isodate) VALUES (?,?,?,?,?,?,?)'''
+        sql = '''INSERT INTO data2 (groupid, artifactname, version, versionscheme, type, size, isodate) 
+        VALUES (?,?,?,?,?,?,?)'''
         cursor.executemany(sql, process_data(reader))
     con.commit()
+    con.close()
 
-    # get type counts
+
+def analyze_data(database_file: str):
+    logging.getLogger().setLevel(logging.INFO)
+    con = sqlite3.connect(database_file)
+
+    # get rowcount
     cursor = con.execute("SELECT MAX(id) FROM data2")
     rowcount: int = cursor.fetchone()[0]
+
+    # get type counts
     logging.info(f"Evaluating {rowcount} jars by type")
     cursor = con.execute("SELECT type,COUNT(*) FROM data2 GROUP BY type ")
-    for row in cursor:
-        logging.debug(row)
+    df_type = pd.DataFrame(cursor, columns=['type', 'jars'])
+    logging.debug(df_type)
+    df_type.plot(kind='bar', x='type', y='jars',
+                 title='Jartypen')
+    plt.show()
 
     # get scheme counts
     logging.info(f"Evaluating {rowcount} jars by version scheme")
     cursor = con.execute("SELECT versionscheme,COUNT(*) FROM data2 GROUP BY versionscheme ")
-    for row in cursor:
-        logging.debug(row)
+
+    logging.info(f"Evaluating {rowcount} jars by version scheme since 2020")
+    cursor_2020 = con.execute(
+        '''SELECT versionscheme,COUNT(*), version, isodate FROM data2 
+        WHERE isodate > 2020 
+        GROUP BY versionscheme 
+        ''')
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    df_year = pd.DataFrame(cursor, columns=['scheme', 'jars'])
+    logging.debug(df_year)
+    df_year.plot(kind='bar', x='scheme', y='jars',
+                 title='Versionsschemata gesamt', ax=ax1)
+
+    df_2020 = pd.DataFrame(cursor_2020, columns=['scheme', 'jars', '', ''])
+    logging.debug(df_2020)
+    df_2020.plot(kind='bar', x='scheme', y='jars',
+                 title='Versionsschemata seit 2020', ax=ax2)
+    plt.show()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    df_year.plot(kind='pie', y='scheme', ax=ax1)
+    df_2020.plot(kind='pie', y='scheme', title='Versionsschemata seit 2020', ax=ax2)
+    plt.show()
+
+    # get year counts
+    logging.info(f"Evaluating {rowcount} jars by year")
+    cursor = con.execute(
+        '''SELECT SUBSTRING(isodate, 1,4) AS year, COUNT(*) FROM data2 
+        GROUP BY year''')
+    df = pd.DataFrame(cursor, columns=['year', 'jars'])
+    logging.debug(df)
+    df.plot(kind='bar', x='year', y='jars', title='Jars pro Jahr')
+    plt.show()
 
     # get examples
     logging.info(f"*** Just printing some examples ***")
@@ -140,15 +186,15 @@ def lsl_to_database(filename: str, database_file: str):
         logging.debug(row)
 
     # get most versions
-    logging.info(f"Looking at the package with the most versions")
+    logging.info(f"Looking at the package with the most versions, j-type only")
     cursor = con.execute(
         '''
-        SELECT (groupid || '/' || artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data2 
+        SELECT (groupid || ':' || artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data2 
         WHERE type == 'j'
         GROUP BY ga, type
         ORDER BY COUNT(*)
         DESC
-        LIMIT 1
+        LIMIT 3
         ''')
     for row in cursor:
         logging.debug(row)
@@ -161,8 +207,8 @@ def lsl_to_database(filename: str, database_file: str):
               GROUP BY version'''
         fetch_cursor = con.execute(sql, (g, a))
         for result in fetch_cursor:
-            logging.debug(result)
-
+            # logging.debug(result)
+            pass
     con.close()
 
 
@@ -176,7 +222,6 @@ def determine_versionscheme(version: str) -> int:
                     "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$",
                     string=version) is not None:
         return 2
-    # todo: #3
     if re.fullmatch(pattern=
                     "^(0|[1-9a-zA-Z]*)\.(0|[1-9a-zA-Z]*)(\.(0|[1-9a-zA-Z]\d*))?$",
                     string=version) is not None:

@@ -31,11 +31,14 @@ def main(filename: str, type: str, plot: bool, strip: bool, output_path=""):
     if type == "lsl":
         data = process_lsl.lsl_to_json(filename)
     elif type == "lsl-db":
-        data = process_lsl.lsl_to_database(filename, "mc22-metadata.db")
+        process_lsl.lsl_to_database(filename, "mc22-metadata.db")
+        process_lsl.analyze_data("mc22-metadata.db")
     elif type == "mdg":
         data = process_mdg.mdg_to_json(filename)
     elif type == "json":
         data = load_json(filename)
+    elif type == "db":
+        process_lsl.analyze_data("mc22-metadata.db")
     else:
         logging.critical("Please provide correct type of input file. Supported: mdg or lsl")
         sys.exit()
