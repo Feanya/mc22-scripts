@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 
+import analyze_database
 import jsonutils
 import process_lsl
 import process_mdg
@@ -30,7 +31,7 @@ def main(filename: str, type: str, shrink: bool, strip: bool,
         data = jsonutils.load_json(filename)
     # analyze a database table
     elif type == "db":
-        process_lsl.analyze_data(database_path)
+        analyze_database.analyze_data(database_path)
     else:
         logging.critical("Please provide correct type of action")
         sys.exit()
