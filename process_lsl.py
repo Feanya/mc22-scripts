@@ -84,10 +84,10 @@ def strip_docs_sources_tests(artifact_list: list[JsonDict]) -> list[JsonDict]:
     return result_list
 
 
-def lsl_to_database(filename: str, database_file: str):
+def lsl_to_database(filename: str, database_file: str, shrink: bool):
     con = sqlite3.connect(database_file)
-    con.execute('''DROP TABLE IF EXISTS data2''')
-    con.execute('''CREATE TABLE IF NOT EXISTS data2
+    con.execute('''DROP TABLE IF EXISTS data''')
+    con.execute('''CREATE TABLE IF NOT EXISTS data
          (id            INTEGER  PRIMARY KEY     AUTOINCREMENT,
          groupid        TEXT,
          artifactname   TEXT,
@@ -102,9 +102,17 @@ def lsl_to_database(filename: str, database_file: str):
     with open(filename) as f:
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
-        sql = '''INSERT INTO data2 (groupid, artifactname, version, versionscheme, type, size, isodate) 
+        sql = '''INSERT INTO data (groupid, artifactname, version, versionscheme, type, size, isodate) 
         VALUES (?,?,?,?,?,?,?)'''
-        cursor.executemany(sql, process_data(reader))
+        cursor.executemany(sql, process_data(reader, shrink))
+    con.commit()
+    con.close()
+
+
+def build_indices(database_file: str):
+    con = sqlite3.connect(database_file)
+    con.execute("CREATE INDEX groups ON data(groupid)")
+    logging.debug("Created index on groupid")
     con.commit()
     con.close()
 
@@ -114,50 +122,64 @@ def analyze_data(database_file: str):
     con = sqlite3.connect(database_file)
 
     # get rowcount
-    cursor = con.execute("SELECT MAX(id) FROM data2")
+    cursor = con.execute("SELECT MAX(id) FROM data")
     rowcount: int = cursor.fetchone()[0]
 
     # get type counts
     logging.info(f"Evaluating {rowcount} jars by type")
-    cursor = con.execute("SELECT type,COUNT(*) FROM data2 GROUP BY type ")
+    cursor = con.execute("SELECT type,COUNT(*) FROM data GROUP BY type ")
     df_type = pd.DataFrame(cursor, columns=['type', 'jars'])
     logging.debug(df_type)
     df_type.plot(kind='bar', x='type', y='jars',
                  title='Jartypen')
     plt.show()
 
+    # get type counts
+    logging.info(f"Evaluating {rowcount} jars by type")
+    cursor = con.execute('''SELECT SUBSTRING(isodate, 1,4) AS year,type,COUNT(*) 
+                         FROM data GROUP BY type,year''')
+    df_typeyear = pd.DataFrame(cursor, columns=['year', 'type', 'jars'])
+    logging.info(df_typeyear)
+    df_typeyear.plot(kind='bar', x='type', y='jars',
+                     title='Jartypen')
+    plt.show()
+
     # get scheme counts
     logging.info(f"Evaluating {rowcount} jars by version scheme")
-    cursor = con.execute("SELECT versionscheme,COUNT(*) FROM data2 GROUP BY versionscheme ")
+    cursor = con.execute("SELECT versionscheme,COUNT(*) FROM data GROUP BY versionscheme ")
 
     logging.info(f"Evaluating {rowcount} jars by version scheme since 2020")
     cursor_2020 = con.execute(
-        '''SELECT versionscheme,COUNT(*), version, isodate FROM data2 
+        '''SELECT versionscheme,COUNT(*), version, isodate FROM data 
         WHERE isodate > 2020 
         GROUP BY versionscheme 
         ''')
 
     fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    df_year = pd.DataFrame(cursor, columns=['scheme', 'jars'])
+    df_year = pd.DataFrame(cursor, columns=['scheme', 'jars'], index=['M.M', 'M.M.P', '3',
+                                                                      'M.M-p', 'M.M.P-p', 'other'])
     logging.debug(df_year)
     df_year.plot(kind='bar', x='scheme', y='jars',
                  title='Versionsschemata gesamt', ax=ax1)
 
-    df_2020 = pd.DataFrame(cursor_2020, columns=['scheme', 'jars', '', ''])
+    df_2020 = pd.DataFrame(cursor_2020, columns=['scheme', 'jars', '', ''], index=['M.M', 'M.M.P', '3',
+                                                                                   'M.M-p', 'M.M.P-p', 'other'])
     logging.debug(df_2020)
     df_2020.plot(kind='bar', x='scheme', y='jars',
                  title='Versionsschemata seit 2020', ax=ax2)
     plt.show()
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    df_year.plot(kind='pie', y='scheme', ax=ax1)
-    df_2020.plot(kind='pie', y='scheme', title='Versionsschemata seit 2020', ax=ax2)
+    df_year.plot(kind='pie', y='jars', title='Versionsschemata gesamt', ax=ax1)
+    logging.info(df_year)
+    df_2020.plot(kind='pie', y='jars', title='Versionsschemata seit 2020', ax=ax2)
+    logging.info(df_2020)
     plt.show()
 
     # get year counts
     logging.info(f"Evaluating {rowcount} jars by year")
     cursor = con.execute(
-        '''SELECT SUBSTRING(isodate, 1,4) AS year, COUNT(*) FROM data2 
+        '''SELECT SUBSTRING(isodate, 1,4) AS year, COUNT(*) FROM data 
         GROUP BY year''')
     df = pd.DataFrame(cursor, columns=['year', 'jars'])
     logging.debug(df)
@@ -167,7 +189,7 @@ def analyze_data(database_file: str):
     # get examples
     logging.info(f"*** Just printing some examples ***")
     cursor = con.execute(
-        '''SELECT * FROM data2 
+        '''SELECT * FROM data 
         WHERE id BETWEEN 200 AND 220
         ORDER BY groupid''')
     for row in cursor:
@@ -176,7 +198,7 @@ def analyze_data(database_file: str):
     # get artifact counts
     logging.info(f"Evaluating {rowcount} jars by artifactname, sorted ***")
     cursor = con.execute(
-        '''SELECT *, COUNT(*), (groupid || ':' || artifactname) AS ga FROM data2 
+        '''SELECT *, COUNT(*), (groupid || ':' || artifactname) AS ga FROM data 
         GROUP BY ga, type
         ORDER BY COUNT(*)
         DESC
@@ -189,7 +211,7 @@ def analyze_data(database_file: str):
     logging.info(f"Looking at the package with the most versions, j-type only")
     cursor = con.execute(
         '''
-        SELECT (groupid || ':' || artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data2 
+        SELECT (groupid || ':' || artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data 
         WHERE type == 'j'
         GROUP BY ga, type
         ORDER BY COUNT(*)
@@ -202,7 +224,7 @@ def analyze_data(database_file: str):
         a = row[2]
         logging.info(f"GA with most versions: {g}:{a}")
         sql = '''SELECT version
-              FROM data2
+              FROM data
               WHERE groupid==(?) AND artifactname==(?)
               GROUP BY version'''
         fetch_cursor = con.execute(sql, (g, a))
@@ -240,7 +262,7 @@ def determine_versionscheme(version: str) -> int:
         return 6
 
 
-def process_data(data: csv.DictReader):
+def process_data(data: csv.DictReader, shrink=False):
     """Generator function for lazy processing of lsl files"""
     i = 0
     errorcount = 0
@@ -263,10 +285,12 @@ def process_data(data: csv.DictReader):
             else:
                 jar_type = 'j'
 
+            # drop docs, sources and tests
+            if jar_type != 'j' and shrink is True:
+                continue
+
             # determine version scheme
             scheme = determine_versionscheme(version)
-            if scheme == 3:
-                print(line)
 
             # convert groupid
             groupid_clean = groupid.replace('/', '.')
@@ -279,7 +303,3 @@ def process_data(data: csv.DictReader):
         except ValueError as err:
             errorcount += 1
             logging.error(f"ValueError {errorcount}: {err}\n {line}")
-
-
-def strip_dates():
-    pass
