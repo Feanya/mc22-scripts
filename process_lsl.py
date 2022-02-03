@@ -8,7 +8,6 @@ import datetime
 import logging
 import re
 import sqlite3
-import sys
 from typing import Dict, Any
 
 import matplotlib.pyplot as plt
@@ -152,33 +151,6 @@ def analyze_data(database_file: str):
 
     df_cross_n.plot.bar(stacked=True)
     logging.info(df_cross_n)
-    plt.show()
-
-    sys.exit()
-    # logging.info(f"Evaluating {rowcount} jars by year and type")
-    # cursor = con.execute('''SELECT SUBSTRING(isodate, 1,4) AS year,type,COUNT(*) FROM data
-    #                     WHERE type=='j'
-    #                     GROUP BY type,year''')
-    # df_j = pd.DataFrame(cursor, columns=['year', 'type', 'count'])
-    # logging.info(df_j)
-    # cursor = con.execute('''SELECT SUBSTRING(isodate, 1,4) AS year,type,COUNT(*) FROM data
-    #                     WHERE type=='t'
-    #                     GROUP BY type,year''')
-    # df_t = pd.DataFrame(cursor, columns=['year', 'type', 'count'])
-    # logging.info(df_t)
-    # df_typeyear.plot(kind='bar', x='type', y='jars',
-    #                 title='Jartypen')
-    # plt.show()
-
-    # Stacked bargraph
-    # fig, ax = plt.subplots()
-    # ax.bar(df_j['year'], df_j['count'], 0.35, label='J-Typ')
-    # ax.bar(df_j['year'], df_t['count'], 0.35, label='T-Typ')
-
-    # ax.set_ylabel('Scores')
-    # ax.set_title('Scores by group and gender')
-    # ax.legend()
-
     plt.show()
 
     # get scheme counts
