@@ -2,3 +2,6 @@ venv/*
 .idea*
 *.txt
 *.csv
+*.json
+*.sqlite
+*.db
