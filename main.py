@@ -1,55 +1,38 @@
 import argparse
-import json
 import logging
 import sys
-from typing import Dict, Any
 
+import jsonutils
 import process_lsl
 import process_mdg
 
-JsonDict = Dict[str, Any]
-
-
-def load_json(filename: str) -> list[JsonDict]:
-    """Load a dumped json file"""
-    logging.debug(f"Attempting to read data from {filename}")
-    with open(filename) as f:
-        data = json.load(f)
-        logging.debug(f"Loaded {len(data)} entries")
-        return data
-
-
-def save_json(data: list[Dict[str, Any]], filename: str):
-    """Save data to a given path"""
-    logging.debug(f"Attempting to save data to {filename}")
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
-
 
 def main(filename: str, type: str, plot: bool, strip: bool, output_path=""):
-    # get a json
+    # get a json from lsl file
     if type == "lsl":
         data = process_lsl.lsl_to_json(filename)
+        # process the json
+        if strip:
+            data = process_lsl.strip_docs_sources_tests(data)
+        # save the json
+        if output_path is not None:
+            jsonutils.save_json(data, output_path)
+    # load lsl to sqlite database and build index
     elif type == "lsl-db":
         process_lsl.lsl_to_database(filename, "mc22-metadata.db")
-        process_lsl.analyze_data("mc22-metadata.db")
+        process_lsl.build_indices("mc22-metadata.db")
+    # get a json from mdg file
     elif type == "mdg":
         data = process_mdg.mdg_to_json(filename)
+    # load a previously stored json file
     elif type == "json":
-        data = load_json(filename)
+        data = jsonutils.load_json(filename)
+    # analyze a database table
     elif type == "db":
         process_lsl.analyze_data("mc22-metadata.db")
     else:
-        logging.critical("Please provide correct type of input file. Supported: mdg or lsl")
+        logging.critical("Please provide correct type of action")
         sys.exit()
-
-    # process the json
-    if strip:
-        data = process_lsl.strip_docs_sources_tests(data)
-
-    # save the json
-    if output_path is not None:
-        save_json(data, output_path)
 
 
 if __name__ == "__main__":
