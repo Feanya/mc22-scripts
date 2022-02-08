@@ -12,7 +12,7 @@ from typing import Dict, Any
 from dateutil import parser
 
 # Types
-from utils import determine_versionscheme
+from utils import determine_versionscheme_raemaekers
 
 JsonDict = Dict[str, Any]
 
@@ -84,6 +84,8 @@ def strip_docs_sources_tests(artifact_list: list[JsonDict]) -> list[JsonDict]:
 
 
 def lsl_to_database(filename: str, database_file: str, shrink: bool):
+    """Read an lsl file to a given sqlite-database, table 'data'.
+    @param shrink: if true, store only j-types, if true store all types of jars (approx. 3x as many)"""
     con = sqlite3.connect(database_file)
     con.execute('''DROP TABLE IF EXISTS data''')
     con.execute('''CREATE TABLE IF NOT EXISTS data
@@ -112,12 +114,15 @@ def build_indices(database_file: str):
     con = sqlite3.connect(database_file)
     con.execute("CREATE INDEX groups ON data(groupid)")
     logging.debug("Created index on groupid")
+    con.execute("CREATE INDEX years ON data(SUBSTRING(isodate, 1,4))")
+    logging.debug("Created index on years")
     con.commit()
     con.close()
 
 
-def process_data(data: csv.DictReader, shrink=False):
-    """Generator function for lazy processing of lsl files"""
+def process_data(data: csv.DictReader, shrink=False) -> tuple:
+    """Generator function for lazy processing of lsl files.
+    :yields one GAV at a time as tuple """
     i = 0
     errorcount = 0
     for line in data:
@@ -144,7 +149,7 @@ def process_data(data: csv.DictReader, shrink=False):
                 continue
 
             # determine version scheme
-            scheme = determine_versionscheme(version)
+            scheme = determine_versionscheme_raemaekers(version)
 
             # convert groupid
             groupid_clean = groupid.replace('/', '.')

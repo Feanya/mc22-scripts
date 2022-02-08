@@ -1,7 +1,20 @@
 import re
 
 
-def determine_versionscheme(version: str) -> int:
+def determine_versionscheme_raemaekers(version: str) -> int:
+    """Determine which pattern the version follows. Definitions after Raemaekers et al (2014 and 2017):
+    https://ieeexplore.ieee.org/document/6975655
+
+    1 MAJOR.MINOR
+    2 MAJOR.MINOR.PATCH
+    3 #1 or #2 with nonnumeric chars
+    4 MAJOR.MINOR-prerelease
+    5 MAJOR.MINOR.PATCH-pre.
+    6 Other versioning scheme
+
+    SemVer RegEx from Semantic Versioning 2.0.0:
+    https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+    """
     # match SEMVER
     if re.fullmatch(pattern=
                     "^(0|[1-9]\d*)\.(0|[1-9]\d*)$",
