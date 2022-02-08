@@ -53,50 +53,84 @@ def get_basic_counts(con: Connection):
 
 
 def analyze_version_schemes_raemakers(con: Connection):
+    # total jars per version scheme
     logging.info(f"Evaluating jars by version scheme")
     cursor = con.execute("SELECT versionscheme,COUNT(*) FROM data GROUP BY versionscheme ")
-    logging.info(f"Evaluating jars by version scheme since 2020")
+    # only 2020
+    logging.info(f"Evaluating jars by version scheme in 2020")
     cursor_2020 = con.execute(
-        '''SELECT versionscheme,COUNT(*), version, isodate FROM data 
-        WHERE isodate > 2020 
+        '''SELECT versionscheme,COUNT(*),isodate FROM data 
+        WHERE isodate BETWEEN 2020 AND 2021 
         GROUP BY versionscheme 
         ''')
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    df_year = pd.DataFrame(cursor, columns=['scheme', 'jars'], index=['M.M', 'M.M.P', '3',
-                                                                      'M.M-p', 'M.M.P-p', 'other'])
+    labels = ['M.M', 'M.M.P', '3', 'M.M-p', 'M.M.P-p', 'other']
+
+    # plot it
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey='all')
+    df_year = pd.DataFrame(cursor, columns=['scheme', 'jars'])
     logging.debug(df_year)
     df_year.plot(kind='bar', x='scheme', y='jars',
                  title='Versionsschemata gesamt', ax=ax1)
-    df_2020 = pd.DataFrame(cursor_2020, columns=['scheme', 'jars', '', ''], index=['M.M', 'M.M.P', '3',
-                                                                                   'M.M-p', 'M.M.P-p', 'other'])
-    logging.debug(df_2020)
+    df_2020 = pd.DataFrame(cursor_2020, columns=['scheme', 'jars', ''])
+    logging.info(df_2020)
     df_2020.plot(kind='bar', x='scheme', y='jars',
-                 title='Versionsschemata seit 2020', ax=ax2)
+                 title='Versionsschemata in 2020', ax=ax2)
     plt.show()
+
+    # absolut pro Jahr
     logging.info(f"Evaluating jars by version scheme and year")
     cursor_cross = con.execute(
-        '''SELECT SUBSTRING(isodate, 1,4) AS year, versionscheme,COUNT(*) FROM data 
-        GROUP BY versionscheme, year 
+        '''SELECT SUBSTRING(isodate, 1,4) AS year, versionscheme,COUNT(*) FROM data
+        GROUP BY versionscheme, year
         ''')
     df = pd.DataFrame(cursor_cross, columns=['year', 'scheme', 'count'])
-    df_cross = pd.crosstab(index=df['year'], columns=df['scheme'], values=df['count'], aggfunc=np.sum, dropna=False)
-    logging.info(df)
+    df_cross = pd.crosstab(index=df['year'], columns=df['scheme'], values=df['count'],
+                           aggfunc=np.sum, dropna=False)
+    # logging.info(df)
     logging.info(df_cross)
     df_cross.plot.bar(stacked=True)
+    plt.title('Anzahl Jars nach Versionsschema pro Jahr')
     plt.show()
+
+    # Anteile pro Jahr als Areaplot
     df_cross_n = pd.crosstab(index=df['year'], columns=df['scheme'], values=df['count'],
                              aggfunc=np.sum, dropna=False, normalize='index')
-    df_cross_n.plot.bar(stacked=True)
+    df_cross_n.plot.area(stacked=True)
     logging.debug(df_cross_n)
-    plt.title('Anteile der Jars nach Versionsschema pro Jahr')
+    plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    plt.title('Anteile der Versionsschemata nach Jahr')
     plt.show()
+
+    # Anteile pro Jahr als Lineplot
+    df_cross_n.plot.line()
+    plt.title('Anteile der Versionsschemata nach Jahr')
+    plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    plt.show()
+
+
+def analyze_version_schemes_per_artifact(con: Connection):
+    """ 1. Welche Versionsschema-Kombinationen kommen in einer Library/GA vor?
+        2. Was passiert mit den M.M-Libraries?
+        3. Wie sieht die Verteilung der Versionsschemata pro Library aus?"""
+
+    # schemes per library
+    logging.info(f"Evaluating jars by type")
+    cursor = con.execute('''SELECT (groupid || artifactname) AS ga, versionscheme,COUNT(*) AS c FROM data 
+                        GROUP BY ga, versionscheme
+                        ORDER BY c DESC''')
+    df = pd.DataFrame(cursor, columns=['type', 'jars'])
+    pass
+
+
+def analyze_version_schemes_strict_semver():
+    pass
 
 
 def find_packages_with_most_versions(con: Connection, n: int):
     logging.info(f"Looking at the package with the most versions, j-type only")
     cursor = con.execute(
         '''
-        SELECT CONCAT(groupid, artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data 
+        SELECT (groupid || artifactname) AS ga, groupid, artifactname, COUNT(*) FROM data 
         WHERE type == 'j'
         GROUP BY ga
         ORDER BY COUNT(*)
@@ -145,7 +179,7 @@ def analyze_types_by_year(con: Connection):
     df_cross.plot.bar(stacked=True)
     plt.show()
 
-    # normalized to rows/years
+    # normalized per rows/years
     df_cross_n = pd.crosstab(index=df['year'], columns=df['type'], values=df['count'],
                              aggfunc=np.sum, dropna=False, normalize='index')
     logging.debug(df_cross_n)
