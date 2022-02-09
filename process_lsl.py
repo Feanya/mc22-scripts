@@ -13,7 +13,7 @@ from dateutil import parser
 from utils import determine_versionscheme_raemaekers
 
 
-def lsl_to_database(filename: str, database_file: str, shrink: bool):
+def import_lsl_to_database(filename: str, database_file: str, shrink: bool):
     """Read an lsl file to a given sqlite-database, table 'data'.
     @param shrink: if true, store only j-types, if true store all types of jars (approx. 3x as many)"""
     con = sqlite3.connect(database_file)

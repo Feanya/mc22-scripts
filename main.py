@@ -6,14 +6,13 @@ import analyze_database
 import process_lsl
 
 
-def main(filename: str, type: str, shrink: bool,
-         database_path="", output_path=""):
+def main(filename: str, type: str, shrink: bool, database_path=""):
     # load lsl to sqlite database and build index
     if type == "lsl-db":
-        process_lsl.lsl_to_database(filename, database_path, shrink)
+        process_lsl.import_lsl_to_database(filename, database_path, shrink)
         process_lsl.build_indices(database_path)
-    # get a json from mdg file
-    elif type == "mdg":
+    # import mdg file to database
+    elif type == "mdg-db":
         pass
     # analyze a database table
     elif type == "db":
@@ -34,10 +33,8 @@ if __name__ == "__main__":
     parser.add_argument('--process', action='store_true', help='If given, process a file')
     parser.add_argument('--shrink', action='store_true', help='If given, load only j-type and drop all others')
     parser.add_argument('-db', '--database', metavar='path', action='store', help='Filename of database')
-    parser.add_argument('-o', '--output', metavar='path', action='store', help='Path to save results to')
     args = parser.parse_args(sys.argv[1:])
 
     # let's go
     logging.debug(f"Trying to process {args.input}")
-    main(args.input, type=args.type, shrink=args.shrink,
-         database_path=args.database, output_path=args.output)
+    main(args.input, type=args.type, shrink=args.shrink, database_path=args.database)
