@@ -6,4 +6,5 @@ venv/*
 *.sqlite
 *.db
 __pycache__*
-config/*
+config*
+*.tar
