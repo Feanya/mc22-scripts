@@ -3,7 +3,6 @@ import logging
 import sys
 
 import analyze_database
-import jsonutils
 import process_lsl
 
 
@@ -16,9 +15,6 @@ def main(filename: str, type: str, shrink: bool,
     # get a json from mdg file
     elif type == "mdg":
         pass
-    # load a previously stored json file
-    elif type == "json":
-        data = jsonutils.load_json(filename)
     # analyze a database table
     elif type == "db":
         analyze_database.analyze_data(database_path)
