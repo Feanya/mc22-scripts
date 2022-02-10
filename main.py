@@ -4,13 +4,15 @@ import sys
 
 import analyze_database
 import process_lsl
+from postgres_utils.connect import get_connection
 
 
-def main(filename: str, type: str, shrink: bool, database_path=""):
+def main(filename: str, type: str, database_path=""):
     # load lsl to sqlite database and build index
+    con = get_connection("postgres.ini")
     if type == "lsl-db":
-        process_lsl.import_lsl_to_database(filename, database_path, shrink)
-        process_lsl.build_indices(database_path)
+        process_lsl.import_lsl_to_database(filename, con)
+        # process_lsl.build_indices(database_path)
     # import mdg file to database
     elif type == "mdg-db":
         pass
@@ -19,7 +21,8 @@ def main(filename: str, type: str, shrink: bool, database_path=""):
         analyze_database.analyze_data(database_path)
     else:
         logging.critical("Please provide correct type of action")
-        sys.exit()
+    con.commit()
+    con.close()
 
 
 if __name__ == "__main__":
@@ -31,10 +34,9 @@ if __name__ == "__main__":
     parser.add_argument('input', metavar='path', type=str, help='path to input file')
     parser.add_argument('type', type=str, help='mdg or lsl')
     parser.add_argument('--process', action='store_true', help='If given, process a file')
-    parser.add_argument('--shrink', action='store_true', help='If given, load only j-type and drop all others')
     parser.add_argument('-db', '--database', metavar='path', action='store', help='Filename of database')
     args = parser.parse_args(sys.argv[1:])
 
     # let's go
-    logging.debug(f"Trying to process {args.input}")
-    main(args.input, type=args.type, shrink=args.shrink, database_path=args.database)
+    logging.debug(f"Trying to process: {args.input}")
+    main(args.input, type=args.type, database_path=args.database)

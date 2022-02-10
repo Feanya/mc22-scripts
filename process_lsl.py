@@ -5,44 +5,75 @@ Tool for parsing the output of rclones (https://github.com/rclone/rclone) `lsl` 
 """
 import csv
 import logging
-import sqlite3
 
-from dateutil import parser
+from psycopg2.extras import execute_values
 
 # Types
 from utils import determine_versionscheme_raemaekers
 
 
-def import_lsl_to_database(filename: str, database_file: str, shrink: bool):
+def import_lsl_to_database(filename: str, con):
     """Read an lsl file to a given sqlite-database, table 'data'.
-    @param shrink: if true, store only j-types, if true store all types of jars (approx. 3x as many)"""
-    con = sqlite3.connect(database_file)
-    con.execute('''DROP TABLE IF EXISTS data''')
-    con.execute('''CREATE TABLE IF NOT EXISTS data
-         (id            INTEGER  PRIMARY KEY     AUTOINCREMENT,
-         groupid        TEXT,
-         artifactname   TEXT,
-         version        TEXT,
-         versionscheme  INTEGER,
-         TYPE           CHAR(1),
-         size           INTEGER,
-         isodate      TEXT);''')
-
+    :param filename: lsl file to import
+    :param con: psycopg2 connection object"""
     cursor = con.cursor()
+    logging.debug("Remove old data table…")
+    cursor.execute('''DROP TABLE IF EXISTS data''')
+    logging.debug("Create new data table…")
+    cursor.execute('''CREATE TABLE IF NOT EXISTS data
+         (id                serial PRIMARY KEY, 
+          groupid           varchar NOT NULL,         
+          artifactname      varchar NOT NULL,
+          version           varchar,
+          versionscheme     integer,
+          type              char(1) NOT NULL,
+          has_tests         boolean,
+          has_javadocs      boolean,
+          has_sources       boolean,
+          size              integer,
+          timestamp         timestamp,
+          previous_version_l  int REFERENCES data,
+          previous_version_t  int REFERENCES data
+        );''')
+    con.commit()
 
+    logging.debug(f"Import data from: {filename}")
     with open(filename) as f:
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
-        sql = '''INSERT INTO data (groupid, artifactname, version, versionscheme, type, size, isodate) 
-        VALUES (?,?,?,?,?,?,?)'''
-        cursor.executemany(sql, process_data(reader, shrink))
+        execute_values(cursor,
+                       '''INSERT INTO data (groupid, artifactname, version, versionscheme, type, size, timestamp) 
+                       VALUES %s''', process_data(reader, False), page_size=500)
+    logging.debug("Done importing!")
     con.commit()
-    con.close()
 
 
-def build_indices(database_file: str):
-    con = sqlite3.connect(database_file)
-    con.execute("CREATE INDEX groups ON data(groupid)")
+def fill_jar_type_flags(con):
+    """If there is another artifact with same groupid, artifactname and version, fill info on tests, javadoc etc
+    into the j-type row"""
+    cursor = con.cursor()
+    pass
+
+
+def fill_previous_versions(con):
+    """For each groupid:artifact, order versions and fill the previous_version columns"""
+    # todo
+    pass
+
+
+def get_test_tuples() -> tuple:
+    return (("groupid", "artifactname", "version", 0, 'a', 42, "2000-01-01 10:00:00.000000000"),
+            ("groupid", "artifactname", "version", 0, 'j', 10, "2000-02-01 11:00:30.000000000"))
+
+
+def build_indices(con):
+    """Build indices on the database
+    1. groupid
+    2. artifactname
+    3. timestamp ?"""
+    cursor = con.cursor()
+    logging.debug("Created index on groupid")
+    cursor.execute("CREATE INDEX groups ON data(groupid)")
     logging.debug("Created index on groupid")
     con.execute("CREATE INDEX years ON data(SUBSTRING(isodate, 1,4))")
     logging.debug("Created index on years")
@@ -58,7 +89,7 @@ def process_data(data: csv.DictReader, shrink=False) -> tuple:
     for line in data:
         try:
             # stitch together timestamp
-            isodate: str = parser.parse(f"{line['date']} {line['time']}").isoformat()
+            isodate = f"{line['date']} {line['time']}"
 
             # split the path
             groupid, artifactname, version, jarname = line['path'].rsplit('/', 3)
