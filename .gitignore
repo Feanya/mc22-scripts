@@ -6,5 +6,5 @@ venv/*
 *.sqlite
 *.db
 __pycache__*
-postgres_connect/config*
+postgres_utils/config*
 *.tar
