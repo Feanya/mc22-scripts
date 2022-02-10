@@ -52,6 +52,7 @@ def fill_jar_type_flags(con):
     """If there is another artifact with same groupid, artifactname and version, fill info on tests, javadoc etc
     into the j-type row"""
     cursor = con.cursor()
+
     pass
 
 
@@ -72,13 +73,16 @@ def build_indices(con):
     2. artifactname
     3. timestamp ?"""
     cursor = con.cursor()
-    logging.debug("Created index on groupid")
-    cursor.execute("CREATE INDEX groups ON data(groupid)")
-    logging.debug("Created index on groupid")
-    con.execute("CREATE INDEX years ON data(SUBSTRING(isodate, 1,4))")
-    logging.debug("Created index on years")
+    logging.debug("Create index on groupid")
+    cursor.execute("CREATE INDEX index_groupid ON data(groupid)")
     con.commit()
-    con.close()
+    logging.debug("Create index on artifactname")
+    cursor.execute("CREATE INDEX index_artifactname ON data(artifactname)")
+    con.commit()
+    logging.debug("Create index on timestamp")
+    cursor.execute("CREATE INDEX index_timestamp ON data(timestamp)")
+    con.commit()
+    logging.debug("Done!")
 
 
 def process_data(data: csv.DictReader, shrink=False) -> tuple:

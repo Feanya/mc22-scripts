@@ -12,7 +12,7 @@ def main(filename: str, type: str, database_path=""):
     con = get_connection("postgres.ini")
     if type == "lsl-db":
         process_lsl.import_lsl_to_database(filename, con)
-        # process_lsl.build_indices(database_path)
+        process_lsl.build_indices(con)
     # import mdg file to database
     elif type == "mdg-db":
         pass
