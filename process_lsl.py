@@ -25,14 +25,13 @@ def import_lsl_to_database(filename: str, con):
          (id                serial PRIMARY KEY, 
           groupid           varchar NOT NULL,         
           artifactname      varchar NOT NULL,
-          jarname           varchar,
+          path           varchar,
           version           varchar,
           versionscheme     integer,
-          type              char(1) NOT NULL,
+          classifier        varchar,
           ref_tests         int REFERENCES data,
           ref_javadocs      int REFERENCES data,
           ref_sources       int REFERENCES data,
-          ref_test_sources  int REFERENCES data,
           size              integer,
           timestamp         timestamp,
           previous_version_l  int REFERENCES data,
@@ -45,7 +44,7 @@ def import_lsl_to_database(filename: str, con):
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
         execute_values(cursor,
-                       '''INSERT INTO data (groupid, artifactname, jarname, version, versionscheme, type, size, timestamp) 
+                       '''INSERT INTO data (groupid, artifactname, path, version, versionscheme, classifier, size, timestamp) 
                        VALUES %s''', process_data(reader, False), page_size=500)
     logging.debug("Done importing!")
     con.commit()
@@ -108,19 +107,22 @@ def process_data(data: csv.DictReader, shrink=True) -> tuple:
             isodate = f"{line['date']} {line['time']}"
 
             # split the path
-            result = re.match(r"^(?P<group>.*?)/(?P<artifact>.*?)(?:_(?P<artifactsuffix>[\-_\.\d]+))?/"
+            result = re.match(r"^(?P<group>.*)/(?P<artifact>[^/]+?)(?:_(?P<artifactsuffix>[\-_\.\d]+))?/"
                               r"(?P<version>[^/]+)/(?P=artifact).?(?P=version)(?:-(?P<classifier>.*?))?\.jar$",
                               line['path'])
 
             if not result:
                 logging.error("Pathname not parseable: %s %s", line['path'], isodate)
                 continue
-            # groupid, artifactname, version, jarname = line['path'].rsplit('/', 3)
 
             groupid = result.group("group")
             artifactname = result.group("artifact")
             version = result.group("version")
             classifier = result.group("classifier")
+
+            # drop docs, sources and tests
+            # if jar_type != 'j' and shrink is True:
+            #    continue
 
             # determine version scheme
             scheme = determine_versionscheme_raemaekers(version)
@@ -131,53 +133,9 @@ def process_data(data: csv.DictReader, shrink=True) -> tuple:
             i += 1
             if i % 1000000 == 0:
                 logging.debug(f"Lines processed: {i}")
-                entry = (groupid_clean, artifactname, "?", version, scheme, '?', line['size'], isodate)
-                yield entry
+            entry = (groupid_clean, artifactname, line['path'], version, scheme, classifier, line['size'], isodate)
+            yield entry
 
         except ValueError as err:
             errorcount += 1
             logging.error(f"ValueError {errorcount}: {err}\n {line}")
-
-            # determine type
-            # todo more types here
-            # type_slice = jarname[-7:-3]
-            # if type_slice == "sts.":
-            # -tests
-            #    jar_type = 't'
-            # elif type_slice == "doc.":
-
-            #             # -javadoc
-            #             #    jar_type = 'd'
-            #             # elif type_slice == "ces.":
-            #             # test-sources
-            #             if jarname[-13:] == "t-sources.":
-            #                 jar_type = 'c'
-            #             elif jarname[-13:] == "s-sources":
-            #                 # examples-sources
-            #                 jar_type = 'o'
-            #             else:
-            #                 # normal sources
-            #                 jar_type = 's'
-            #         elif type_slice == "ers.":
-            #         # adapters
-            #         jar_type = 'p'
-            #     elif type_slice == "api.":
-            #     # adapters
-            #     jar_type = 'a'
-            #
-            # # elif type_slice == "all." or type_slice == "ons." or type_slice == "xml." or type_slice == "_64." \
-            # #        or type_slice == "les." or type_slice == "-b1." or type_slice == "1.1." or type_slice == "ies." \
-            # #        or type_slice == "led." or type_slice == "one." or type_slice == "ded.":
-            # # other: all, commons, xml, linux_x86_64, examples, b1 and b1-1 (wrongly pushed prerelease versions)
-            # # jar_with_dependencies, bundled, standalone, shaded, ant-task, ftp, patch, zen, info
-            # #    jar_type = 'o'
-            # elif re.match(fr"[{re.escape(type_slice)}aofxlidtzn\-_][lnmtebscf6][lspdekhno4]\.",
-            #               type_slice) is not None or \
-            #      type_slice == "-b1." or type_slice == "1.1":
-            # jar_type = 'o'
-            # else:
-            # jar_type = 'j'
-
-            # drop docs, sources and tests
-            # if jar_type != 'j' and shrink is True:
-            #    continue
