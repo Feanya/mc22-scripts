@@ -93,6 +93,9 @@ def build_indices(con):
     logging.debug("Create index on timestamp")
     cursor.execute("CREATE INDEX index_timestamp ON data(timestamp)")
     con.commit()
+    logging.debug("Create index on classifier")
+    cursor.execute("CREATE INDEX index_classifier ON data(classifier)")
+    con.commit()
     logging.debug("Done!")
 
 
