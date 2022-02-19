@@ -30,7 +30,7 @@ def main(filename: str, type: str, test=False):
 if __name__ == "__main__":
     # setup logger
     logging.basicConfig(format='%(asctime)s %(levelname)s: (%(funcName)s) %(message)s', level=logging.DEBUG,
-                        filemode='w', filename='mc22-script.log')
+                        filemode='w', filename='log/mc22-script.log')
     logging.debug(f"Arguments: {sys.argv}")
     # parse arguments
     parser = argparse.ArgumentParser(description="Process maven jar-artifact information")
