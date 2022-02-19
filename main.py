@@ -2,14 +2,16 @@ import argparse
 import logging
 import sys
 
-import analyze_database
 import process_lsl
 from postgres_utils.connect import get_connection
 
 
-def main(filename: str, type: str, database_path=""):
+def main(filename: str, type: str, test=False):
     # load lsl to sqlite database and build index
-    con = get_connection("postgres.ini")
+    if test:
+        con = get_connection("postgres_test.ini")
+    else:
+        con = get_connection("postgres.ini")
     if type == "lsl-db":
         process_lsl.import_lsl_to_database(filename, con)
         process_lsl.build_indices(con)
@@ -18,7 +20,7 @@ def main(filename: str, type: str, database_path=""):
         pass
     # analyze a database table
     elif type == "db":
-        analyze_database.analyze_data(database_path)
+        pass
     else:
         logging.critical("Please provide correct type of action")
     con.commit()
@@ -32,12 +34,12 @@ if __name__ == "__main__":
     logging.debug(f"Arguments: {sys.argv}")
     # parse arguments
     parser = argparse.ArgumentParser(description="Process maven jar-artifact information")
-    parser.add_argument('input', metavar='path', type=str, help='path to input file')
+    parser.add_argument('input', metavar='input_path', type=str, help='path to input file')
     parser.add_argument('type', type=str, help='mdg or lsl')
-    parser.add_argument('--process', action='store_true', help='If given, process a file')
-    parser.add_argument('-db', '--database', metavar='path', action='store', help='Filename of database')
+    parser.add_argument('--shrink', action='store_true', help='If given, load only primary artifacts')
+    parser.add_argument('--test', action='store_true', help='Use test database instead of data22')
     args = parser.parse_args(sys.argv[1:])
 
     # let's go
     logging.debug(f"Trying to process: {args.input}")
-    main(args.input, type=args.type, database_path=args.database)
+    main(args.input, type=args.type, test=args.test)
