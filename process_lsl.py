@@ -12,6 +12,14 @@ from psycopg2.extras import execute_values
 # Types
 from utils import determine_versionscheme_raemaekers
 
+# logger for import errors
+err_logger = logging.getLogger('import_err')
+## new handler to only log import errors into error log
+err_logger.handlers.clear()
+err_logger.propagate = False
+error_log_path = 'log/import_errors.log'
+err_logger.addHandler(logging.FileHandler(error_log_path, mode='w'))
+
 
 def import_lsl_to_database(filename: str, con):
     """Read an lsl file to a given sqlite-database, table 'data'.
@@ -39,14 +47,14 @@ def import_lsl_to_database(filename: str, con):
         );''')
     con.commit()
 
-    logging.debug(f"Import data from: {filename}")
+    logging.info(f"Import data from: {filename}")
     with open(filename) as f:
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
         execute_values(cursor,
                        '''INSERT INTO data (groupid, artifactname, path, version, versionscheme, classifier, size, timestamp) 
                        VALUES %s''', process_data(reader, False), page_size=500)
-    logging.debug("Done importing!")
+    logging.info("✅ Done importing! %d errors occured, see %s", len(open(error_log_path).readlines()), error_log_path)
     con.commit()
 
 
@@ -73,11 +81,6 @@ def fill_previous_versions(con):
     pass
 
 
-def get_test_tuples() -> tuple:
-    return (("groupid", "artifactname", "version", 0, 'a', 42, "2000-01-01 10:00:00.000000000"),
-            ("groupid", "artifactname", "version", 0, 'j', 10, "2000-02-01 11:00:30.000000000"))
-
-
 def build_indices(con):
     """Build indices on the data table
     1. groupid
@@ -96,7 +99,7 @@ def build_indices(con):
     logging.debug("Create index on classifier")
     cursor.execute("CREATE INDEX index_classifier ON data(classifier)")
     con.commit()
-    logging.debug("Done!")
+    logging.info("Indices created 🔧")
 
 
 def process_data(data: csv.DictReader, shrink=True) -> tuple:
@@ -115,7 +118,7 @@ def process_data(data: csv.DictReader, shrink=True) -> tuple:
                               line['path'])
 
             if not result:
-                logging.error("Pathname not parseable: %s %s", line['path'], isodate)
+                err_logger.error("%s, %s", line['path'], isodate)
                 continue
 
             groupid = result.group("group")
@@ -135,7 +138,7 @@ def process_data(data: csv.DictReader, shrink=True) -> tuple:
 
             i += 1
             if i % 1000000 == 0:
-                logging.debug(f"Lines processed: {i}")
+                logging.debug("Lines processed: %d", i)
             entry = (groupid_clean, artifactname, line['path'], version, scheme, classifier, line['size'], isodate)
             yield entry
 
