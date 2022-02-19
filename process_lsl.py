@@ -21,7 +21,7 @@ error_log_path = 'log/import_errors.log'
 err_logger.addHandler(logging.FileHandler(error_log_path, mode='w'))
 
 
-def import_lsl_to_database(filename: str, con):
+def import_lsl_to_database(filename: str, con, shrink=False):
     """Read an lsl file to a given sqlite-database, table 'data'.
     :param filename: lsl file to import
     :param con: psycopg2 connection object"""
@@ -53,9 +53,12 @@ def import_lsl_to_database(filename: str, con):
                                 skipinitialspace=True)
         execute_values(cursor,
                        '''INSERT INTO data (groupid, artifactname, path, version, versionscheme, classifier, size, timestamp) 
-                       VALUES %s''', process_data(reader, False), page_size=500)
-    logging.info("✅ Done importing! %d errors occured, see %s", len(open(error_log_path).readlines()), error_log_path)
+                       VALUES %s''', process_data(reader, shrink), page_size=500)
     con.commit()
+    cursor.execute('''SELECT COUNT(*) FROM data''')
+    count = cursor.fetchone()[0]
+    logging.info("✅ Done importing %d rows!", count)
+    logging.info("%d errors occured, see %s", len(open(error_log_path).readlines()), error_log_path)
 
 
 def fill_jar_type_flags(con):
@@ -102,11 +105,10 @@ def build_indices(con):
     logging.info("Indices created 🔧")
 
 
-def process_data(data: csv.DictReader, shrink=True) -> tuple:
+def process_data(data: csv.DictReader, shrink=False) -> tuple:
     """Generator function for lazy processing of lsl files.
     :yields one GAV at a time as tuple """
     i = 0
-    errorcount = 0
     for line in data:
         try:
             # stitch together timestamp
@@ -127,8 +129,8 @@ def process_data(data: csv.DictReader, shrink=True) -> tuple:
             classifier = result.group("classifier")
 
             # drop docs, sources and tests
-            # if jar_type != 'j' and shrink is True:
-            #    continue
+            if classifier is not None and shrink is True:
+                continue
 
             # determine version scheme
             scheme = determine_versionscheme_raemaekers(version)

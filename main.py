@@ -6,14 +6,14 @@ import process_lsl
 from postgres_utils.connect import get_connection
 
 
-def main(filename: str, type: str, test=False):
+def main(filename: str, type: str, test=False, shrink=False):
     # load lsl to sqlite database and build index
     if test:
         con = get_connection("postgres_test.ini")
     else:
         con = get_connection("postgres.ini")
     if type == "lsl-db":
-        process_lsl.import_lsl_to_database(filename, con)
+        process_lsl.import_lsl_to_database(filename, con, shrink)
         process_lsl.build_indices(con)
     # import mdg file to database
     elif type == "mdg-db":
@@ -42,4 +42,4 @@ if __name__ == "__main__":
 
     # let's go
     logging.debug(f"Trying to process: {args.input}")
-    main(args.input, type=args.type, test=args.test)
+    main(args.input, type=args.type, test=args.test, shrink=args.shrink)
