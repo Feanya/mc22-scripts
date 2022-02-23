@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 
+import analyze_database
 import process_lsl
 from postgres_utils.connect import get_connection
 
@@ -20,10 +21,9 @@ def main(filename: str, type: str, test=False, shrink=False):
         pass
     # analyze a database table
     elif type == "db":
-        pass
+        analyze_database.analyze_data(con)
     else:
         logging.critical("Please provide correct type of action")
-    con.commit()
     con.close()
 
 
