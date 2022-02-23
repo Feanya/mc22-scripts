@@ -116,7 +116,7 @@ def process_data(data: csv.DictReader, shrink=False) -> tuple:
 
             # split the path
             result = re.match(r"^(?P<group>.*)/(?P<artifact>[^/]+?)(?:_(?P<artifactsuffix>[\-_\.\d]+))?/"
-                              r"(?P<version>[^/]+)/(?P=artifact).?(?P=version)(?:-(?P<classifier>.*?))?\.jar$",
+                              r"(?P<version>[^/]+)/(?P=artifact).?(?P=version)(?:-(?P<classifier>.*?))?\..ar$",
                               line['path'])
 
             if not result:
