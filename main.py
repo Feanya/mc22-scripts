@@ -16,6 +16,7 @@ def main(filename: str, type: str, test=False, shrink=False):
     if type == "lsl-db":
         process_lsl.import_lsl_to_database(filename, con, shrink)
         process_lsl.build_indices(con)
+        process_lsl.create_views(con)
     # import mdg file to database
     elif type == "mdg-db":
         pass

@@ -107,10 +107,32 @@ def build_indices(con: connection):
     logging.info("Indices created 🔧")
 
 
+def create_views(con: connection):
+    """Generating views to analyze version scheme changes"""
+    logging.info("Creating view versions_ga...")
+    cursor = con.cursor()
+    cursor.execute('''DROP VIEW IF EXISTS versions_ga''')
+    cursor.execute('''CREATE VIEW versions_ga AS (
+                      SELECT CONCAT(groupid, ':', artifactname) AS ga, version, versionscheme
+                      FROM data) ''')
+    con.commit()
+    logging.info("Creating view aggregated_ga...")
+    cursor.execute('''DROP VIEW IF EXISTS aggregated_ga''')
+    cursor.execute(
+        '''CREATE MATERIALIZED VIEW aggregated_ga AS (
+           SELECT COUNT(DISTINCT versionscheme) AS vs, ga, array_agg(DISTINCT versionscheme) AS agg_vs FROM versions_ga
+           GROUP BY ga
+           HAVING COUNT(DISTINCT versionscheme) > 1
+           ORDER BY ga)''')
+    con.commit()
+    logging.info("Done!")
+
+
 def process_data(data: csv.DictReader, shrink=False) -> tuple:
     """Generator function for lazy processing of lsl files.
     :yields one GAV at a time as tuple """
     i = 0
+    errorcount = 0
     for line in data:
         try:
             # stitch together timestamp
