@@ -7,6 +7,7 @@ import csv
 import logging
 import re
 
+from psycopg2._psycopg import connection
 from psycopg2.extras import execute_values
 
 # Types
@@ -21,7 +22,7 @@ error_log_path = 'log/import_errors.log'
 err_logger.addHandler(logging.FileHandler(error_log_path, mode='w'))
 
 
-def import_lsl_to_database(filename: str, con, shrink=False):
+def import_lsl_to_database(filename: str, con: connection, shrink=False):
     """Read an lsl file to a given sqlite-database, table 'data'.
     :param filename: lsl file to import
     :param con: psycopg2 connection object"""
@@ -52,7 +53,8 @@ def import_lsl_to_database(filename: str, con, shrink=False):
         reader = csv.DictReader(f, delimiter=' ', fieldnames=['size', 'date', 'time', 'path'],
                                 skipinitialspace=True)
         execute_values(cursor,
-                       '''INSERT INTO data (groupid, artifactname, path, version, versionscheme, classifier, size, timestamp) 
+                       '''INSERT INTO data 
+                       (groupid, artifactname, path, version, versionscheme, classifier, size, timestamp) 
                        VALUES %s''', process_data(reader, shrink), page_size=500)
     con.commit()
     cursor.execute('''SELECT COUNT(*) FROM data''')
@@ -61,7 +63,7 @@ def import_lsl_to_database(filename: str, con, shrink=False):
     logging.info("%d errors occured, see %s", len(open(error_log_path).readlines()), error_log_path)
 
 
-def fill_jar_type_flags(con):
+def fill_jar_type_flags(con: connection):
     """If there is another artifact with same groupid, artifactname and version, fill info on tests, javadoc etc
     into the j-type row"""
     cursor = con.cursor()
@@ -78,13 +80,13 @@ def fill_jar_type_flags(con):
     pass
 
 
-def fill_previous_versions(con):
+def fill_previous_versions(con: connection):
     """For each groupid:artifact, order versions and fill the previous_version columns"""
     # todo
     pass
 
 
-def build_indices(con):
+def build_indices(con: connection):
     """Build indices on the data table
     1. groupid
     2. artifactname

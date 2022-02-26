@@ -1,14 +1,15 @@
 import logging
 import os
-from sqlite3 import Connection
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from pandas import DataFrame
+from psycopg2._psycopg import connection
+
+prefix = 'aar'
 
 
-def analyze_data(con: Connection):
+def analyze_data(con: connection):
     logging.getLogger().setLevel(logging.INFO)
 
     # create folder for result csvs
@@ -46,32 +47,31 @@ def analyze_data(con: Connection):
         logging.debug(row)
 
     # get most versions
-    find_packages_with_most_versions(con, 5)
+    # find_packages_with_most_versions(con, 5)
 
     # close
     con.close()
 
 
-def get_basic_counts(con: Connection):
+def get_basic_counts(con: connection):
     cursor = con.cursor()
     cursor.execute("SELECT MAX(id) FROM data")
     logging.info(f"Evaluating {cursor.fetchone()[0]} jars…")
 
     # get year counts
-    logging.info(f"Evaluating jars by year")
+    logging.info(f"Evaluating {prefix}s (GAV) by year")
     cursor.execute(
         '''SELECT EXTRACT(YEAR FROM timestamp) AS year, COUNT(*) FROM data 
         GROUP BY year
         ORDER BY year ''')
     df = pd.DataFrame(cursor, columns=['year', 'jars'])
     logging.debug(df)
-    df.to_csv('results/jars_per_year.csv')
-    version_schemes_raemakers(con, '2005-01-01 00:00:00', '2023-01-01 00:00:00', '2005-2022')
+    df.to_csv(f"results/{prefix}_per_year.csv")
     df.plot(kind='bar', x='year', y='jars', title='Jars pro Jahr (alle)')
     plt.show()
 
     # get year counts
-    logging.info(f"Evaluating libs by year")
+    logging.info(f"Evaluating libs (GA) by year")
     cursor.execute(
         '''SELECT year, COUNT(*) FROM (
                          SELECT DISTINCT(groupid, artifactname) AS ga, COUNT(*), EXTRACT(YEAR from timestamp) AS year
@@ -83,7 +83,6 @@ def get_basic_counts(con: Connection):
     df = pd.DataFrame(cursor, columns=['year', 'jars'])
     logging.debug(df)
     df.to_csv('results/libs_per_year.csv')
-    version_schemes_raemakers(con, '2005-01-01 00:00:00', '2023-01-01 00:00:00', '2005-2022')
     df.plot(kind='bar', x='year', y='jars', title='Artefakte/Libraries mit min. einer Version pro Jahr (alle)')
     plt.show()
 
@@ -100,7 +99,7 @@ def get_basic_counts(con: Connection):
     plt.show()
 
 
-def one_year_per_month(con, year: int):
+def one_year_per_month(con: connection, year: int):
     cursor = con.cursor()
     # get year counts
     logging.info(f"Evaluating jars by year")
@@ -116,12 +115,12 @@ def one_year_per_month(con, year: int):
     df = pd.DataFrame(cursor, columns=['jars', 'month'])
     logging.debug(df)
     df.to_csv(f'results/jars_{year}.csv')
-    title = f'Artefakte/Versionen > 1.0.0 nach Monat({year})'
+    title = f'{prefix}-GAV > 1.0.0 nach Monat({year})'
     df.plot(kind='bar', x='month', y='jars', title=title)
     plt.show()
 
     # get year counts
-    logging.info(f"Evaluating libs by year")
+    logging.info(f"Evaluating libs (GA) by year")
     cursor.execute(
         '''SELECT month, COUNT(*) FROM (
                          SELECT DISTINCT(groupid, artifactname) AS ga, COUNT(*), EXTRACT(MONTH from timestamp) AS month
@@ -134,12 +133,12 @@ def one_year_per_month(con, year: int):
     df = pd.DataFrame(cursor, columns=['month', 'libs'])
     logging.debug(df)
     # df.to_csv('results/libs_per_year.csv')
-    title = f'Artefakte/Libraries mit min. einer Version nach Monat ({year})'
+    title = f'{prefix}-(GA) mit min. einer Version nach Monat ({year})'
     df.plot(kind='bar', x='month', y='libs', title=title)
     plt.show()
 
 
-def analyze_version_schemes_raemakers_sidebyside(con: Connection):
+def analyze_version_schemes_raemakers_sidebyside(con: connection):
     # total jars per version scheme
     logging.info(f"Evaluating jars by version scheme")
     cursor = con.cursor()
@@ -169,7 +168,7 @@ def analyze_version_schemes_raemakers_sidebyside(con: Connection):
     plt.show()
 
 
-def version_schemes_raemakers(con: Connection, from_date: str, to_date: str, title: str):
+def version_schemes_raemakers(con: connection, from_date: str, to_date: str, title: str):
     labels = ['M.M', 'M.M.P', '3', 'M.M-p', 'M.M.P-p', 'other']
     # absolut pro Jahr
     logging.info(f"Evaluating jars by version scheme and year")
@@ -188,7 +187,7 @@ def version_schemes_raemakers(con: Connection, from_date: str, to_date: str, tit
     df_cross.plot.bar(stacked=True)
 
     plt.legend(labels=labels)
-    plt.title(f'Anzahl Jars nach Versionsschema pro Jahr ({title})')
+    plt.title(f'Anzahl {prefix} nach Versionsschema pro Jahr ({title})')
     plt.show()
 
     # Anteile pro Jahr als Areaplot
@@ -206,7 +205,7 @@ def version_schemes_raemakers(con: Connection, from_date: str, to_date: str, tit
     plt.show()
 
 
-def analyze_version_schemes_per_artifact(con: Connection):
+def analyze_version_schemes_per_artifact(con: connection):
     """ 1. Welche Versionsschema-Kombinationen kommen in einer Library/GA vor?
         2. Was passiert mit den M.M-Libraries?
         3. Wie sieht die Verteilung der Versionsschemata pro Library aus?"""
@@ -221,11 +220,18 @@ def analyze_version_schemes_per_artifact(con: Connection):
     pass
 
 
+def version_scheme_changes(con: connection):
+    # get GA-groups
+    # for each group:
+    #
+    pass
+
+
 def analyze_version_schemes_strict_semver():
     pass
 
 
-def find_packages_with_most_versions(con: Connection, n: int):
+def find_packages_with_most_versions(con: connection, n: int):
     logging.info(f"Looking at the package with the most versions, j-type only")
     cursor = con.cursor()
     cursor.execute(
@@ -253,26 +259,28 @@ def find_packages_with_most_versions(con: Connection, n: int):
             pass
 
 
-def analyze_types(con: Connection):
+def analyze_types(con: connection):
     """Wie viele Jars welchen Typs (Javadoc (d), Sources (d), Tests(t), Paket(j) sind in der Datenbank?"""
     logging.info(f"Evaluating jars by type")
     cursor = con.cursor()
     cursor.execute('''SELECT classifier, COUNT(*) FROM data
-                                     GROUP BY classifier ORDER BY COUNT(*) DESC''')
+                      GROUP BY classifier 
+                      ORDER BY COUNT(*) DESC''')
     df_type = pd.DataFrame(cursor, columns=['type', 'jars'])
     logging.debug(df_type)
     df_type.plot(kind='bar', x='type', y='jars', title='Jartypen')
     plt.show()
 
 
-def analyze_types_by_year(con: Connection):
+def analyze_types_by_year(con: connection):
     """Wie verteilen sich die Jartypen auf die Jahre?"""
     # get type counts
     logging.info(f"Evaluating jars by year and type")
     cursor = con.cursor()
     cursor.execute('''SELECT EXTRACT(YEAR FROM timestamp) AS year,classifier,COUNT(*) FROM data 
                              GROUP BY classifier,year
-                             ORDER BY COUNT(*) DESC LIMIT 5''')
+                             ORDER BY COUNT(*) DESC 
+                             LIMIT 5''')
     df = pd.DataFrame(cursor, columns=['year', 'type', 'count'])
     logging.info(df)
 
@@ -289,7 +297,3 @@ def analyze_types_by_year(con: Connection):
     logging.debug(df_cross_n)
     df_cross_n.plot.bar(stacked=True)
     plt.show()
-
-
-def export_dataframe(df: DataFrame, name: str):
-    df.to_csv('results/%s', name)
