@@ -111,7 +111,7 @@ def create_views(con: connection):
     """Generating views to analyze version scheme changes"""
     logging.info("Creating view versions_ga...")
     cursor = con.cursor()
-    cursor.execute('''DROP VIEW IF EXISTS versions_ga''')
+    cursor.execute('''DROP VIEW IF EXISTS versions_ga CASCADE''')
     cursor.execute('''CREATE VIEW versions_ga AS (
                       SELECT CONCAT(groupid, ':', artifactname) AS ga, version, versionscheme
                       FROM data) ''')
@@ -122,7 +122,6 @@ def create_views(con: connection):
         '''CREATE MATERIALIZED VIEW aggregated_ga AS (
            SELECT COUNT(DISTINCT versionscheme) AS vs, ga, array_agg(DISTINCT versionscheme) AS agg_vs FROM versions_ga
            GROUP BY ga
-           HAVING COUNT(DISTINCT versionscheme) > 1
            ORDER BY ga)''')
     con.commit()
     logging.info("Done!")
