@@ -211,19 +211,31 @@ def analyze_version_schemes_per_artifact(con: connection):
         3. Wie sieht die Verteilung der Versionsschemata pro Library aus?"""
 
     # schemes per library
-    logging.info(f"Evaluating jars by type")
+    logging.info(f"Evaluating {prefix}s by type")
     cursor = con.cursor()
     cursor.execute('''SELECT (groupid || artifactname) AS ga, versionscheme, COUNT(*) AS c FROM data 
                         GROUP BY ga, versionscheme
                         ORDER BY c DESC''')
-    df = pd.DataFrame(cursor, columns=['type', 'jars'])
+    df = pd.DataFrame(cursor, columns=['type', f"{prefix}s"])
     pass
 
 
 def version_scheme_changes(con: connection):
-    # get GA-groups
-    # for each group:
-    #
+    cursor = con.cursor()
+    # count the number of libraries that use combinations of version schemes
+    cursor.execute('''SELECT COUNT(*) AS c, agg_vs FROM aggregated_ga
+                      GROUP BY agg_vs
+                      ORDER BY c DESC''')
+
+    # have a look at those using all schemes
+    cursor.execute('''SELECT ga FROM aggregated_ga WHERE agg_vs = ARRAY[1,2,3,4,5,6]''')
+    df = pd.DataFrame(cursor, columns=['ga'])
+    # logging.info(df)
+
+    # have a look at those using just other
+    cursor.execute('''SELECT ga FROM aggregated_ga WHERE agg_vs = ARRAY[6]''')
+    df = pd.DataFrame(cursor, columns=['ga'])
+    logging.info(df)
     pass
 
 
