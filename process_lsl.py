@@ -34,17 +34,12 @@ def import_lsl_to_database(filename: str, con: connection, shrink=False):
          (id                serial PRIMARY KEY, 
           groupid           varchar NOT NULL,         
           artifactname      varchar NOT NULL,
-          path           varchar,
+          path              varchar,
           version           varchar,
           versionscheme     integer,
           classifier        varchar,
-          ref_tests         int REFERENCES data,
-          ref_javadocs      int REFERENCES data,
-          ref_sources       int REFERENCES data,
-          size              integer,
-          timestamp         timestamp,
-          previous_version_l  int REFERENCES data,
-          previous_version_t  int REFERENCES data
+          size              double precision,
+          timestamp         timestamp
         );''')
     con.commit()
 
@@ -61,29 +56,6 @@ def import_lsl_to_database(filename: str, con: connection, shrink=False):
     count = cursor.fetchone()[0]
     logging.info("✅ Done importing %d rows!", count)
     logging.info("%d errors occured, see %s", len(open(error_log_path).readlines()), error_log_path)
-
-
-def fill_jar_type_flags(con: connection):
-    """If there is another artifact with same groupid, artifactname and version, fill info on tests, javadoc etc
-    into the j-type row"""
-    cursor = con.cursor()
-    # todo, wip
-    # '''SELECT CONCAT(groupid, artifactname, version) as gav FROM data d
-    # JOIN(
-    # SELECT CONCAT(groupid, artifactname, version) as gav, COUNT(*) as c
-    # FROM data d2
-    # GROUP BY gav
-    # HAVING c > 1
-    # ON d.groupid = d2.groupid) as gc
-    # )'''
-
-    pass
-
-
-def fill_previous_versions(con: connection):
-    """For each groupid:artifact, order versions and fill the previous_version columns"""
-    # todo
-    pass
 
 
 def build_indices(con: connection):
@@ -120,7 +92,11 @@ def create_views(con: connection):
     cursor.execute('''DROP VIEW IF EXISTS aggregated_ga''')
     cursor.execute(
         '''CREATE MATERIALIZED VIEW aggregated_ga AS (
-           SELECT COUNT(DISTINCT versionscheme) AS vs, ga, array_agg(DISTINCT versionscheme) AS agg_vs FROM versions_ga
+           SELECT
+            COUNT(*) AS count,
+            ga,
+            string_agg(DISTINCT versionscheme::char(1)) AS agg_vs
+                FROM versions_ga
            GROUP BY ga
            ORDER BY ga)''')
     con.commit()

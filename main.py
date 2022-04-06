@@ -17,9 +17,6 @@ def main(filename: str, type: str, test=False, shrink=False):
         process_lsl.import_lsl_to_database(filename, con, shrink)
         process_lsl.build_indices(con)
         process_lsl.create_views(con)
-    # import mdg file to database
-    elif type == "mdg-db":
-        pass
     # analyze a database table
     elif type == "db":
         analyze_database.analyze_data(con)

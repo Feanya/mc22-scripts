@@ -253,8 +253,8 @@ def find_packages_with_most_versions(con: connection, n: int):
         GROUP BY groupid, artifactname
         ORDER BY COUNT(*)
         DESC
-        LIMIT 3
-        ''')
+        LIMIT %s
+        ''', str(n))
     for row in cursor:
         logging.info(row)
         g = row[0]
@@ -272,8 +272,8 @@ def find_packages_with_most_versions(con: connection, n: int):
 
 
 def analyze_types(con: connection):
-    """Wie viele Jars welchen Typs (Javadoc (d), Sources (d), Tests(t), Paket(j) sind in der Datenbank?"""
-    logging.info(f"Evaluating jars by type")
+    """Wie viele Artefakte welchen Typs sind in der Datenbank?"""
+    logging.info(f"Evaluating {prefix}s by type")
     cursor = con.cursor()
     cursor.execute('''SELECT classifier, COUNT(*) FROM data
                       GROUP BY classifier 
@@ -285,7 +285,7 @@ def analyze_types(con: connection):
 
 
 def analyze_types_by_year(con: connection):
-    """Wie verteilen sich die Jartypen auf die Jahre?"""
+    """Wie verteilen sich die Artefakt-Typen auf die Jahre?"""
     # get type counts
     logging.info(f"Evaluating {prefix}s by year and type")
     cursor = con.cursor()
