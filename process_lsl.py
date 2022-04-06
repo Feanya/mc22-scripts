@@ -86,7 +86,8 @@ def create_views(con: connection):
     cursor.execute('''DROP VIEW IF EXISTS versions_ga CASCADE''')
     cursor.execute('''CREATE VIEW versions_ga AS (
                       SELECT CONCAT(groupid, ':', artifactname) AS ga, version, versionscheme
-                      FROM data) ''')
+                      FROM data
+                      WHERE classifier IS NULL) ''')
     con.commit()
     logging.info("Creating view aggregated_ga...")
     cursor.execute('''DROP VIEW IF EXISTS aggregated_ga''')
@@ -95,8 +96,21 @@ def create_views(con: connection):
            SELECT
             COUNT(*) AS count,
             ga,
-            string_agg(DISTINCT versionscheme::char(1)) AS agg_vs
+            string_agg(DISTINCT versionscheme::char(1), '') AS agg_vs
                 FROM versions_ga
+           GROUP BY ga
+           ORDER BY ga)''')
+    con.commit()
+    logging.info("Creating view aggregated_ga_sv_only...")
+    cursor.execute('''DROP VIEW IF EXISTS aggregated_ga_sv_only''')
+    cursor.execute(
+        '''CREATE MATERIALIZED VIEW aggregated_ga_sv_only AS (
+           SELECT
+            COUNT(*) AS count,
+            ga,
+            string_agg(DISTINCT versionscheme::char(1), '') AS agg_vs
+                FROM versions_ga
+            WHERE versionscheme = 1 or versionscheme = 2
            GROUP BY ga
            ORDER BY ga)''')
     con.commit()
