@@ -28,7 +28,7 @@ def import_lsl_to_database(filename: str, con: connection, shrink=False):
     :param con: psycopg2 connection object"""
     cursor = con.cursor()
     logging.debug("Remove old data table…")
-    cursor.execute('''DROP TABLE IF EXISTS data''')
+    cursor.execute('''DROP TABLE IF EXISTS data CASCADE''')
     logging.debug("Create new data table…")
     cursor.execute('''CREATE TABLE IF NOT EXISTS data
          (id                serial PRIMARY KEY, 
